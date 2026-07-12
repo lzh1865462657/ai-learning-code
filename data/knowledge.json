@@ -1,0 +1,18 @@
+[
+  {
+    "title": "Python 虚拟环境",
+    "content": "使用 python -m venv .venv 创建虚拟环境。Windows 运行 .venv\\Scripts\\activate，macOS 或 Linux 运行 source .venv/bin/activate。"
+  },
+  {
+    "title": "Pandas 数据分析",
+    "content": "Pandas 的 read_csv 可以读取 CSV，groupby 用于分组聚合，sort_values 用于排序，缺失值可使用 fillna 或 dropna 处理。"
+  },
+  {
+    "title": "FastAPI 启动方式",
+    "content": "安装依赖后运行 uvicorn ai_learning.api:app --reload，在浏览器打开 http://127.0.0.1:8000/docs 调试接口。"
+  },
+  {
+    "title": "RAG 基本流程",
+    "content": "RAG 先把用户问题转换为检索向量，从知识库召回相关文档，再把问题和文档上下文交给生成模型得到有依据的回答。"
+  }
+]
