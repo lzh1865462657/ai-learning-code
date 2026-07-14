@@ -2,11 +2,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from document_loader import index_document
-from llm_service import answer_question, stream_answer
+from config import configure_logging
+from document_loader import DocumentProcessingError, index_document
+from llm_service import LLMServiceError, answer_question, stream_answer
+from vector_store import VectorStoreError
 
 
-app = FastAPI(title="离线私有知识库 RAG 问答系统", version="1.1.0")
+app = FastAPI(title="离线私有知识库 RAG 问答系统", version="1.2.0")
+configure_logging()
 
 
 class QuestionRequest(BaseModel):
@@ -23,17 +26,29 @@ def health_check() -> dict[str, str]:
 
 
 @app.post("/documents/index")
-def index_local_document(request: DocumentRequest) -> dict[str, str]:
+def index_local_document(request: DocumentRequest) -> dict[str, str | int]:
     try:
-        index_document(request.file_path)
+        chunk_count = index_document(request.file_path)
     except (FileNotFoundError, ValueError) as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
-    return {"message": "文档入库完成", "file_path": request.file_path}
+    except DocumentProcessingError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except VectorStoreError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    return {
+        "message": "文档入库完成",
+        "file_path": request.file_path,
+        "chunk_count": chunk_count,
+    }
 
 
 @app.post("/knowledge_chat")
 def knowledge_chat(request: QuestionRequest) -> dict[str, str]:
-    return {"question": request.question, "answer": answer_question(request.question)}
+    try:
+        answer = answer_question(request.question)
+    except LLMServiceError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    return {"question": request.question, "answer": answer}
 
 
 @app.post("/stream_chat")

@@ -76,3 +76,58 @@ full_rag_demo/
 ## 配置
 
 在 `config.py` 中调整 Ollama 地址、模型名称、文本分块大小和向量库路径。`chroma_db/` 是运行时数据，已被 Git 忽略，不会上传到 GitHub。
+
+## 异常处理
+
+项目会记录向量库加载、文档解析、Ollama 调用和流式响应中的底层异常，并向调用方返回稳定的中文错误信息：
+
+- 普通问答和文档入库失败时返回 `400`、`422` 或 `503`，进程不会退出。
+- Ollama 未启动或模型不可用时，普通问答会返回 `503` 和明确的错误原因。
+- 流式问答已开始响应后出现异常时，会发送 SSE `error` 事件，而不是让服务崩溃。
+
+## Linux 部署
+
+以下命令以 Ubuntu/Debian 服务器为例：
+
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip git
+git clone https://github.com/lzh1865462657/ai-learning-code.git
+cd ai-learning-code/full_rag_demo
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+安装 Ollama 并下载项目使用的模型：
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull qwen:7b
+ollama pull nomic-embed-text
+```
+
+后台启动服务并把日志写入文件：
+
+```bash
+mkdir -p logs
+nohup .venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000 > logs/rag-server.log 2>&1 &
+tail -f logs/rag-server.log
+```
+
+查看和停止服务：
+
+```bash
+ps aux | grep "uvicorn main:app"
+kill <进程号>
+```
+
+生产环境建议改用 systemd、反向代理和 HTTPS；`nohup` 适合学习、演示和基础服务器部署。
+
+## 验收清单
+
+1. 执行 `ollama list`，确认 `qwen:7b` 与 `nomic-embed-text` 已安装。
+2. 调用 `/documents/index`，确认成功后生成本地 `chroma_db/` 目录。
+3. 启动服务并访问 `http://127.0.0.1:8000/docs`。
+4. 验证 `/knowledge_chat` 与 `/stream_chat` 能返回知识库答案。
+5. 停止 Ollama 后再次调用接口，确认获得友好错误提示且 FastAPI 服务仍在运行。
